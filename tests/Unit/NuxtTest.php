@@ -1,0 +1,127 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Flytachi\Winter\Front\Nuxt\Tests\Unit;
+
+use Flytachi\Winter\Front\Nuxt\Nuxt;
+use Flytachi\Winter\Front\Nuxt\PackageManager;
+use Flytachi\Winter\Kernel\App\Priority;
+use Flytachi\Winter\Kernel\Kernel;
+use PHPUnit\Framework\TestCase;
+
+/** A Nuxt frontend as the kernel gets it: its site, its build, its image. */
+final class NuxtTest extends TestCase
+{
+    private string $project = '';
+
+    protected function setUp(): void
+    {
+        $this->project = sys_get_temp_dir() . '/wfn_nuxt_' . bin2hex(random_bytes(4));
+        mkdir($this->project . '/frontend', 0777, true);
+        file_put_contents($this->project . '/frontend/package.json', '{"name":"front"}');
+        Kernel::$pathRoot = $this->project;
+    }
+
+    protected function tearDown(): void
+    {
+        exec('rm -rf ' . escapeshellarg($this->project));
+    }
+
+    public function test_spa_serves_the_output_with_the_shell_and_nuxt_assets(): void
+    {
+        $site = Nuxt::spa('frontend')->site();
+
+        self::assertSame('frontend', $site->name);
+        self::assertSame($this->project . '/frontend/.output/public', $site->root);
+        self::assertSame('200.html', $site->shell);
+        self::assertSame('/_nuxt', $site->assets);
+        self::assertSame('/', $site->path);
+        self::assertNull($site->port);
+        self::assertFalse($site->critical);
+        self::assertSame(Priority::Low, $site->priority);
+    }
+
+    public function test_ssg_has_no_shell(): void
+    {
+        self::assertNull(Nuxt::ssg('frontend')->site()->shell);
+    }
+
+    public function test_the_place_reaches_the_site(): void
+    {
+        $site = Nuxt::spa('admin/', path: '/panel', port: 9091, routes: '/admin', exclusive: false, critical: true, overlap: false)->site();
+
+        self::assertSame($this->project . '/admin/.output/public', $site->root, 'the trailing slash dropped');
+        self::assertSame('/panel', $site->path);
+        self::assertSame(9091, $site->port);
+        self::assertSame(['/admin'], $site->routes, 'a string is a list of one');
+        self::assertFalse($site->exclusive);
+        self::assertTrue($site->critical);
+        self::assertFalse($site->overlap);
+    }
+
+    public function test_the_name_comes_from_the_folder(): void
+    {
+        self::assertSame('admin-ui', Nuxt::spa('apps/Admin-UI')->site()->name);
+        self::assertSame('front.v2', Nuxt::spa('_Front.V2')->site()->name, 'lowercased, from its first letter or digit');
+        self::assertSame('front', Nuxt::spa('frontend', name: 'front')->site()->name);
+    }
+
+    public function test_a_folder_that_gives_no_name_asks_for_one(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('the folder "___" gives no name: say name:');
+        Nuxt::spa('___');
+    }
+
+    public function test_a_folder_outside_the_project_is_refused(): void
+    {
+        foreach (['../front', '/srv/front', 'a/../../b', '', 'Admin UI'] as $folder) {
+            try {
+                Nuxt::spa($folder);
+                self::fail("accepted: {$folder}");
+            } catch (\InvalidArgumentException $e) {
+                self::assertStringContainsString('folder is relative to the project root', $e->getMessage());
+            }
+        }
+    }
+
+    public function test_the_build_uses_the_detected_manager_and_generate(): void
+    {
+        touch($this->project . '/frontend/pnpm-lock.yaml');
+
+        $build = Nuxt::spa('frontend')->build();
+
+        self::assertSame('frontend', $build->context);
+        self::assertSame('.output/public', $build->output);
+        self::assertSame(['package.json', 'pnpm-lock.yaml'], $build->manifest);
+        self::assertSame('pnpm install --frozen-lockfile', $build->install);
+        self::assertSame('pnpm run generate', $build->build);
+        self::assertSame('node:24-alpine', $build->image);
+    }
+
+    public function test_an_explicit_manager_wins(): void
+    {
+        touch($this->project . '/frontend/pnpm-lock.yaml');
+
+        $build = Nuxt::ssg('frontend', packageManager: PackageManager::Npm)->build();
+
+        self::assertSame('npm install', $build->install, 'npm without its own lock: a plain install');
+        self::assertSame('npm run generate', $build->build);
+    }
+
+    public function test_the_image_needs_nothing(): void
+    {
+        $image = Nuxt::spa('frontend')->image();
+
+        self::assertSame([], $image->packages);
+        self::assertSame([], $image->run);
+    }
+
+    public function test_the_factories_touch_no_disk(): void
+    {
+        $site = Nuxt::spa('not/there')->site();
+
+        self::assertSame($this->project . '/not/there/.output/public', $site->root);
+    }
+}

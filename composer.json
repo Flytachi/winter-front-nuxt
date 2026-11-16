@@ -1,0 +1,42 @@
+{
+    "name": "flytachi/winter-front-nuxt",
+    "description": "A Nuxt frontend in a Winter application: declared in one line, served by the application's own HTTP server, built into its image",
+    "type": "library",
+    "license": "MIT",
+    "scripts": {
+        "test": "phpunit",
+        "cs-check": "phpcs .",
+        "cs-fix": "phpcbf ."
+    },
+    "autoload": {
+        "psr-4": {
+            "Flytachi\\Winter\\Front\\Nuxt\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Flytachi\\Winter\\Front\\Nuxt\\Tests\\": "tests/"
+        }
+    },
+    "require": {
+        "php": ">=8.4",
+        "flytachi/winter-kernel": "^4.6@RC"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "@stable",
+        "squizlabs/php_codesniffer": "@stable"
+    },
+    "homepage": "https://winterframe.net",
+    "support": {
+        "issues": "https://github.com/flytachi/winter-front-nuxt/issues",
+        "source": "https://github.com/flytachi/winter-front-nuxt",
+        "docs": "https://winterframe.net/docs/frontend"
+    },
+    "keywords": ["nuxt", "vue", "frontend", "spa", "ssg", "swoole", "winter"],
+    "authors": [
+        {
+            "name": "Flytachi",
+            "email": "jason.khan.x@gmail.com"
+        }
+    ]
+}
