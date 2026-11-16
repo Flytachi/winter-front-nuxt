@@ -21,11 +21,13 @@ final readonly class NuxtConfig
      * @param string $file Its name: `nuxt.config.ts`.
      * @param string|null $ssr `true`, `false`, `expr`; null — not there.
      * @param string|null $baseURL The literal, `expr`; null — not there.
+     * @param bool $backend Whether it names `WINTER_BACKEND` anywhere outside a comment.
      */
     private function __construct(
         public string $file,
         public ?string $ssr,
         public ?string $baseURL,
+        public bool $backend = false,
     ) {
     }
 
@@ -49,10 +51,11 @@ final readonly class NuxtConfig
             return null;
         }
         $text = self::withoutComments($text);
+        $backend = str_contains($text, 'WINTER_BACKEND');
         $root = self::rootObject($text);
         if ($root === null) {
             // Not an object literal there: nothing it says can be read.
-            return new self($file, 'expr', 'expr');
+            return new self($file, 'expr', 'expr', true);
         }
         $top = self::entries($text, $root);
 
@@ -71,7 +74,7 @@ final readonly class NuxtConfig
                 }
             }
         }
-        return new self($file, $ssr, $baseURL);
+        return new self($file, $ssr, $baseURL, $backend);
     }
 
     /** The text with its comments left out — what is inside strings kept as it is. */

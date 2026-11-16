@@ -7,8 +7,10 @@
 [![Docs](https://img.shields.io/badge/docs-winterframe.net-blue.svg)](https://winterframe.net/docs/frontend)
 
 A Nuxt frontend in a Winter application, declared in one line. The application's own HTTP
-server sends its built files beside the API — no nginx, no proxy, no Node in production —
-and `call service docker` builds it into the image.
+server sends its built files beside the API — no nginx, no proxy, no Node in production
+for a single-page app or a pre-rendered site — or forwards to the Nitro server it runs for
+SSR; `call run dev` runs `nuxt dev` behind the same address, and `call service docker`
+builds it into the image.
 
 ```php
 $components->frontend(Nuxt::spa('frontend'));
@@ -76,10 +78,11 @@ A Node stage of its own builds it; the image gets `.output/public` only.
 
 ## Modes
 
-| | Factory | `nuxt.config.ts` | Unknown page |
-| --- | --- | --- | --- |
-| Single-page app | `Nuxt::spa()` | `ssr: false` | the app's `200.html` — the browser routes |
-| Pre-rendered site | `Nuxt::ssg()` | no `ssr` key; `prerender` | 404 |
+| | Factory | `nuxt.config.ts` | Built with | In production |
+| --- | --- | --- | --- | --- |
+| Single-page app | `Nuxt::spa()` | `ssr: false` | `generate` | files only; an unknown page gets `200.html` |
+| Pre-rendered site | `Nuxt::ssg()` | no `ssr` key; `prerender` | `generate` | files only; an unknown page is 404 |
+| Rendered on request (SSR) | `Nuxt::ssr()` | no `ssr` key | `build` | the Nitro server, run by the application |
 
 ```ts
 // Nuxt::ssg() — every page built in advance (SEO), the links followed from /
@@ -88,8 +91,67 @@ export default defineNuxtConfig({
 })
 ```
 
-Both are built with `generate`. Rendering on every request (SSR) and `nuxt dev` under
-`call run dev` are coming.
+### SSR
+
+`Nuxt::ssr('frontend')` runs `node frontend/.output/server/index.mjs` under the supervisor,
+on a loopback port of its own; what no controller took — any method, Nitro's own server
+routes too — is forwarded to it, and `.output/public` is sent by the HTTP server itself.
+While Node starts or after it crashed, a page answers `503` with `Retry-After`; the
+supervisor restarts it.
+
+During SSR `useFetch('/api/…')` is answered by Nitro, not by the controllers. Hand it on
+with a server route — it reads `WINTER_BACKEND` when it runs: a loopback address with the
+controllers the frontend's port shows (a prefix closed there stays closed), where nothing
+comes back to Node:
+
+```ts
+// frontend/server/routes/api/[...].ts
+export default defineEventHandler((event) =>
+  proxyRequest(event, process.env.WINTER_BACKEND + event.path))
+```
+
+A `routeRules` proxy does not do: Nuxt writes its target into the build, before the
+address is known.
+
+Node is in the image; SSR needs more memory and CPU than files — Node shares the cores
+with PHP. Cache pages where you can (`routeRules` with `swr` or `isr`). An answer reaches
+the client once Node has finished it: a stream from a server route (server-sent events)
+is not passed on as it comes.
+
+---
+
+## Development: `call run dev`
+
+`call run dev` runs `nuxt dev` in every mode, and the application's own address serves it —
+pages, `/_nuxt/…`, the live reload (HMR) — beside the controllers, with the same
+`path:`/`port:`/`routes:` as in production. Its lines go to the log under the frontend's
+name.
+
+Before it starts, the dependencies are installed when the lock file changed since the last
+install here (`pnpm-lock.yaml changed since the last install: pnpm install …`) — and not
+otherwise. pnpm keeps its store in `node_modules`.
+
+In Docker the image needs Node, and `node_modules` a volume of its own — the host's are
+built for the host:
+
+```yaml
+# docker-compose.yml — call service docker prints it for your folders
+services:
+  app:
+    build:
+      args:
+        DEV: ${DEV:-false}
+    volumes:
+      - ./:/app/
+      - frontend-node-modules:/app/frontend/node_modules
+volumes:
+  frontend-node-modules:
+```
+
+`DEV=true docker compose up --build` builds an image with Node, npm and corepack;
+`docker compose up --build` without it, the production one — with no Node for a
+single-page app or a pre-rendered site. A `.php` change restarts the application and
+`nuxt dev` with it (a couple of seconds); a `.vue` change is the live reload only.
 
 ---
 
@@ -165,8 +227,9 @@ the frontend "frontend": not built yet: run "pnpm run generate" in frontend/
 ```
 
 Only literal values are read: `ssr: process.env.SPA !== '1'` is taken as it is.
-`NUXT_APP_BASE_URL` in the environment counts as `baseURL`. A warning never stops the
-start.
+`NUXT_APP_BASE_URL` in the environment counts as `baseURL`. For `Nuxt::ssr()`: nothing in
+the folder naming `WINTER_BACKEND`. Under `call run dev` nothing is said about the build. A
+warning never stops the start.
 
 ---
 

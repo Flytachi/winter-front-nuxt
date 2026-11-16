@@ -22,3 +22,17 @@ All notable changes to this package are documented here. The format follows
 - Hints at `call run`: no `ssr: false` for a single-page app, `ssr: false` for a
   pre-rendered site, `app.baseURL` other than `path:`, not built yet, several lock files or
   none, no folder or no `nuxt.config`. Only literal values are argued with.
+- `Nuxt::ssr()` — every page rendered on request by the Nitro server (`build` →
+  `.output/server/index.mjs`), which the application runs and forwards to: any method no
+  controller took, Nitro's own routes too; `.output/public` is sent by the HTTP server.
+  Node in the image; the hint when nothing in the folder uses `WINTER_BACKEND` (a server
+  route that hands `/api` to the controllers, `server/routes/api/[...].ts`).
+- `call run dev` runs `nuxt dev` in every mode (`bin/nuxt-dev`), through the application's
+  own address, its live reload (HMR) included: Node checked (in Docker: rebuild with
+  `DEV=true`), the dependencies installed when the lock file changed since the last install
+  (and said why), pnpm's store kept in `node_modules`, then `nuxt dev` in its place on the
+  port the kernel gave. No "not built yet" under `call run dev`.
+- `NuxtOutput` — the lines of `nuxt dev` and Nitro in the application's log: colours left
+  out, errors and warnings at their level, stack frames joined to their line.
+- The image: Node, npm and corepack only in a development build (`DEV=true`) for
+  `Nuxt::spa()`/`ssg()`; Node always for `Nuxt::ssr()`.

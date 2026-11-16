@@ -8,6 +8,7 @@
         "cs-check": "phpcs .",
         "cs-fix": "phpcbf ."
     },
+    "bin": ["bin/nuxt-dev"],
     "autoload": {
         "psr-4": {
             "Flytachi\\Winter\\Front\\Nuxt\\": "src/"

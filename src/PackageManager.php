@@ -49,11 +49,17 @@ enum PackageManager: string
         ];
     }
 
-    /** The install command: the lock file kept as it is; without one, a plain install. */
-    public function install(string $folder): string
+    /**
+     * The install command: the lock file kept as it is; without one, a plain install.
+     *
+     * @param bool $image For the image's build stage, where bun is not there yet and is
+     *     installed first; false — where it runs, under `call run dev`.
+     */
+    public function install(string $folder, bool $image = true): string
     {
+        $bun = $image ? 'npm install -g bun@1 && ' : '';
         if ($this->lockIn($folder) === null) {
-            return $this === self::Bun ? 'npm install -g bun@1 && bun install' : "{$this->value} install";
+            return $this === self::Bun ? "{$bun}bun install" : "{$this->value} install";
         }
         return match ($this) {
             self::Pnpm => 'pnpm install --frozen-lockfile',
@@ -61,7 +67,7 @@ enum PackageManager: string
             self::Yarn => self::majorOf($folder, 'yarn') >= 2
                 ? 'yarn install --immutable'
                 : 'yarn install --frozen-lockfile',
-            self::Bun => 'npm install -g bun@1 && bun install --frozen-lockfile',
+            self::Bun => "{$bun}bun install --frozen-lockfile",
         };
     }
 
@@ -93,6 +99,11 @@ enum PackageManager: string
     }
 
     /** The lock file of this manager in the folder, null when there is none. */
+    public function lockFile(string $folder): ?string
+    {
+        return $this->lockIn($folder);
+    }
+
     private function lockIn(string $folder): ?string
     {
         $locks = match ($this) {

@@ -1,0 +1,22 @@
+#!/usr/bin/env php
+<?php
+
+/*
+ * `nuxt dev` for `call run dev`: see Flytachi\Winter\Front\Nuxt\DevRunner. Run in the
+ * project root: nuxt-dev <folder> <manager>.
+ */
+
+declare(strict_types=1);
+
+foreach ([dirname(__DIR__, 3) . '/autoload.php', dirname(__DIR__) . '/vendor/autoload.php'] as $autoload) {
+    if (is_file($autoload)) {
+        require $autoload;
+        break;
+    }
+}
+if (!class_exists(\Flytachi\Winter\Front\Nuxt\DevRunner::class)) {
+    require dirname(__DIR__) . '/src/PackageManager.php';
+    require dirname(__DIR__) . '/src/DevRunner.php';
+}
+
+exit(\Flytachi\Winter\Front\Nuxt\DevRunner::main($argv));
