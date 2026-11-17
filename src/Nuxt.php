@@ -255,6 +255,11 @@ final readonly class Nuxt implements Frontend
         if (!is_dir($directory)) {
             return ["no folder {$this->folder}/ in the project"];
         }
+        // A build with no project beside it — the image keeps the build only: nothing to
+        // advise on, its setup was checked where it was built.
+        if (!is_file("{$directory}/package.json") && $this->site()->isBuilt()) {
+            return [];
+        }
         $hints = [];
         $config = NuxtConfig::read($directory);
         if ($config === null && NuxtConfig::find($directory) === null) {

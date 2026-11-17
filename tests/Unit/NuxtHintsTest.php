@@ -215,4 +215,15 @@ final class NuxtHintsTest extends TestCase
 
         self::assertSame([], Nuxt::spa('frontend')->hints(true), 'nuxt dev builds nothing ahead');
     }
+
+    public function test_a_build_without_its_sources_says_nothing(): void
+    {
+        // The image keeps the build only: no nuxt.config, no package.json, no lock file.
+        unlink($this->front . '/package.json');
+        unlink($this->front . '/pnpm-lock.yaml');
+
+        self::assertSame([], Nuxt::spa('frontend')->hints(false), 'a deployed build is not a project to advise on');
+        unlink($this->front . '/.output/public/200.html');
+        self::assertNotSame([], Nuxt::spa('frontend')->hints(false), 'neither built nor a project: still said');
+    }
 }

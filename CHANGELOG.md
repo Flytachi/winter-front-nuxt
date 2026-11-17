@@ -21,7 +21,8 @@ All notable changes to this package are documented here. The format follows
   production image has no Node.
 - Hints at `call run`: no `ssr: false` for a single-page app, `ssr: false` for a
   pre-rendered site, `app.baseURL` other than `path:`, not built yet, several lock files or
-  none, no folder or no `nuxt.config`. Only literal values are argued with.
+  none, no folder or no `nuxt.config`. Only literal values are argued with. A build with
+  no project beside it (the image keeps the build only) is not argued with.
 - `call run dev` runs `nuxt dev` in either mode (`bin/nuxt-dev`), through the application's
   own address, its live reload (HMR) included: Node checked (in Docker: rebuild with
   `DEV=true`), the dependencies installed when the lock file changed since the last install

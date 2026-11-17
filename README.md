@@ -105,6 +105,10 @@ pages, `/_nuxt/…`, the live reload (HMR) — beside the controllers, with the 
 `path:`/`port:`/`routes:` as in production. Its lines go to the log under the frontend's
 name.
 
+What is forwarded to `nuxt dev` carries `X-Winter-Forwarded`: a Nitro route or `devProxy`
+handing it back to the application's address finds a controller or a 404, never `nuxt dev`
+again — no loop. A `$fetch` of your own from Node code does not carry it.
+
 Before it starts, the dependencies are installed when the lock file changed since the last
 install here (`pnpm-lock.yaml changed since the last install: pnpm install …`) — and not
 otherwise. pnpm keeps its store in `node_modules`.
