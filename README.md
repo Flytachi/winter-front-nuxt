@@ -122,7 +122,9 @@ services:
   app:
     build:
       args:
-        DEV: ${DEV:-false}
+        DEV: ${DEV:-false}     # the build: Node, npm and corepack in the image
+    environment:
+      DEV: ${DEV:-false}       # the start: call run dev instead of call run
     volumes:
       - ./:/app/
       - frontend-node-modules:/app/frontend/node_modules
@@ -131,8 +133,13 @@ volumes:
 ```
 
 `DEV=true docker compose up --build` builds an image with Node, npm and corepack;
-`docker compose up --build` without it, the production one — with no Node. A `.php` change restarts the application and
-`nuxt dev` with it (a couple of seconds); a `.vue` change is the live reload only.
+`docker compose up --build` without it, the production one — with no Node. A `.php` change
+restarts the application and `nuxt dev` with it (a couple of seconds); a `.vue` change is
+the live reload only.
+
+> **`DEV` is needed twice.** `build.args` puts Node into the image, `environment` starts
+> `call run dev`. `Node is not in the image` in the log means the container runs as dev
+> but the image was built without `build.args.DEV`: add it and rebuild with `--build`.
 
 ---
 
