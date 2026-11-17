@@ -25,10 +25,10 @@ use Flytachi\Winter\Kernel\Kernel;
  * }
  * ```
  *
- * Three modes: {@see spa()} — one page, the browser builds the rest (`ssr: false`);
- * {@see ssg()} — every page built in advance; both built with `generate` into
- * `.output/public`, and the production image has no Node: only the files. {@see ssr()} —
- * every page rendered on request by the Nitro server, which the application runs.
+ * Two modes, both built with `generate` into `.output/public`: {@see spa()} — one page,
+ * the browser builds the rest (`ssr: false`); {@see ssg()} — every page built in advance.
+ * The production image has no Node: only the files. Rendering on every request (SSR) is a
+ * Node service of its own, run beside the application, not inside it.
  *
  * Under `call run dev` every mode runs `nuxt dev` instead, through the application's own
  * address, its live reload included.
@@ -39,12 +39,6 @@ final readonly class Nuxt implements Frontend
 {
     /** What `nuxt generate` writes, from the frontend's folder. */
     public const string OUTPUT = '.output/public';
-
-    /** What `nuxt build` writes: the Nitro server and the public files. */
-    public const string SERVER_OUTPUT = '.output';
-
-    /** The Nitro server `nuxt build` writes, from the frontend's folder. */
-    public const string SERVER = '.output/server/index.mjs';
 
     /**
      * What a development build of the image needs for `nuxt dev`: corepack for pnpm and
@@ -150,40 +144,6 @@ final readonly class Nuxt implements Frontend
         );
     }
 
-    /**
-     * A site whose pages the Nitro server renders on every request (`build` →
-     * `.output/server/index.mjs`): the application runs it and forwards to it what no
-     * controller took — any method, Nitro's own routes too; its public files the HTTP
-     * server sends itself. Node is in the image. The parameters are {@see spa()}'s.
-     *
-     * @param string|list<string> $routes
-     * @throws \InvalidArgumentException A folder outside the project, a place it cannot take.
-     */
-    public static function ssr(
-        string $folder,
-        string $path = '/',
-        ?int $port = null,
-        string|array $routes = [],
-        bool $exclusive = true,
-        ?string $name = null,
-        ?PackageManager $packageManager = null,
-        bool $critical = false,
-        bool $overlap = true,
-    ): self {
-        return self::make(
-            Mode::Ssr,
-            $folder,
-            $path,
-            $port,
-            $routes,
-            $exclusive,
-            $name,
-            $packageManager,
-            $critical,
-            $overlap,
-        );
-    }
-
     /** @param string|list<string> $routes */
     private static function make(
         Mode $mode,
@@ -244,67 +204,48 @@ final readonly class Nuxt implements Frontend
             priority: Priority::Low,
             overlap: $this->overlap,
             assets: self::ASSETS,
-            // A rendered site has no page of its own at the root of its public files:
-            // Nitro writes nitro.json on every build.
-            marker: $this->mode === Mode::Ssr ? $this->directory() . '/' . self::SERVER_OUTPUT . '/nitro.json' : null,
         );
     }
 
     /**
-     * Node in a development build of the image (`DEV=true`), for `nuxt dev`; in every build
-     * for a rendering server. A single-page app or a pre-rendered site ships without it.
+     * Node only in a development build of the image (`DEV=true`), for `nuxt dev`: the
+     * production image ships the files without it.
      */
     public function image(): ServiceImage
     {
-        return $this->mode === Mode::Ssr
-            ? new ServiceImage(packages: ['nodejs'], devPackages: ['npm'], devRun: self::DEV_RUN)
-            : new ServiceImage(devPackages: ['nodejs', 'npm'], devRun: self::DEV_RUN);
+        return new ServiceImage(devPackages: ['nodejs', 'npm'], devRun: self::DEV_RUN);
     }
 
     public function build(): FrontBuild
     {
         $manager = $this->manager();
-        $ssr = $this->mode === Mode::Ssr;
         return new FrontBuild(
             $this->folder,
-            $ssr ? self::SERVER_OUTPUT : self::OUTPUT,
+            self::OUTPUT,
             $manager->manifest($this->directory()),
             $manager->install($this->directory()),
-            $manager->run($ssr ? 'build' : 'generate'),
+            $manager->run('generate'),
         );
     }
 
     /**
-     * Under `call run dev`, `nuxt dev` in every mode — through `bin/nuxt-dev`, which
-     * installs the dependencies when the lock file changed; otherwise the Nitro server of a
-     * rendered site, and nothing for the files of the other two.
+     * `nuxt dev` under `call run dev`, in either mode — through `bin/nuxt-dev`, which
+     * installs the dependencies when the lock file changed since the last install.
      */
-    public function program(bool $dev): ?FrontProgram
+    public function devServer(): FrontProgram
     {
-        if ($dev) {
-            return new FrontProgram(
-                [PHP_BINARY, dirname(__DIR__) . '/bin/nuxt-dev', $this->folder, $this->manager()->value],
-                output: new NuxtOutput(),
-                startTimeout: 180,
-                server: $this->mode === Mode::Ssr,
-            );
-        }
-        if ($this->mode !== Mode::Ssr) {
-            return null;
-        }
         return new FrontProgram(
-            ['node', $this->folder . '/' . self::SERVER],
-            ['NODE_ENV' => 'production'],
-            new NuxtOutput(),
-            server: true,
+            [PHP_BINARY, dirname(__DIR__) . '/bin/nuxt-dev', $this->folder, $this->manager()->value],
+            output: new NuxtOutput(),
+            startTimeout: 180,
         );
     }
 
     /**
      * What does not match its mode: no `ssr: false` for a single-page app, `ssr: false`
-     * for the others, a rendered site that never names `WINTER_BACKEND`, `app.baseURL`
-     * other than its path, no build yet (outside `call run dev`), a package manager chosen
-     * among several. Only what the config says literally is argued with.
+     * for a pre-rendered site, `app.baseURL` other than its path, no build yet (outside
+     * `call run dev`), a package manager chosen among several. Only what the config says
+     * literally is argued with.
      *
      * @return list<string>
      */
@@ -324,22 +265,16 @@ final readonly class Nuxt implements Frontend
                 $hints[] = "{$config->file} has no ssr: false — generate prerenders every page; "
                     . 'set it for a single-page app, or use Nuxt::ssg()';
             }
-            if ($this->mode !== Mode::Spa && $config->ssr === 'false') {
+            if ($this->mode === Mode::Ssg && $config->ssr === 'false') {
                 $hints[] = "{$config->file} has ssr: false — the pages are empty shells; use Nuxt::spa(), or drop it";
-            }
-            if ($this->mode === Mode::Ssr && !$config->backend && !self::serverUsesBackend($directory)) {
-                $hints[] = "nothing in {$this->folder}/ uses WINTER_BACKEND — during SSR useFetch('/api/…') "
-                    . 'stays in Nitro; add server/routes/api/[...].ts: export default defineEventHandler('
-                    . '(event) => proxyRequest(event, process.env.WINTER_BACKEND + event.path))';
             }
             $hint = $this->baseUrlHint($config->baseURL);
             if ($hint !== null) {
                 $hints[] = $hint;
             }
         }
-        if (!$dev && !$this->isBuilt()) {
-            $script = $this->mode === Mode::Ssr ? 'build' : 'generate';
-            $hints[] = sprintf('not built yet: run "%s" in %s/', $this->manager()->run($script), $this->folder);
+        if (!$dev && !$this->site()->isBuilt()) {
+            $hints[] = sprintf('not built yet: run "%s" in %s/', $this->manager()->run('generate'), $this->folder);
         }
         if ($this->packageManager === null) {
             [, $hint] = PackageManager::detect($directory);
@@ -369,45 +304,6 @@ final readonly class Nuxt implements Frontend
             return "app.baseURL is \"{$baseURL}\" but the frontend answers at /: drop it, or say path: '{$base}'";
         }
         return null;
-    }
-
-    /**
-     * Whether a file of its Nitro server (`server/`) names `WINTER_BACKEND` — the route that
-     * hands `/api` to the controllers; read at run time, unlike a route rule of the config.
-     */
-    private static function serverUsesBackend(string $directory): bool
-    {
-        if (!is_dir("{$directory}/server")) {
-            return false;
-        }
-        try {
-            $files = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator("{$directory}/server", \FilesystemIterator::SKIP_DOTS),
-                \RecursiveIteratorIterator::LEAVES_ONLY,
-                \RecursiveIteratorIterator::CATCH_GET_CHILD,
-            );
-            $seen = 0;
-            foreach ($files as $file) {
-                if (++$seen > 500) {
-                    break;
-                }
-                $text = @file_get_contents($file->getPathname(), length: 65536);
-                if (is_string($text) && str_contains($text, 'WINTER_BACKEND')) {
-                    return true;
-                }
-            }
-        } catch (\UnexpectedValueException) {
-            // What could be read was looked at.
-        }
-        return false;
-    }
-
-    /** Whether its build is there: the server of a rendered site, the files of the others. */
-    private function isBuilt(): bool
-    {
-        return $this->mode === Mode::Ssr
-            ? is_file($this->directory() . '/' . self::SERVER)
-            : $this->site()->isBuilt();
     }
 
     /** The package manager: the one given, or the one the lock file tells. */

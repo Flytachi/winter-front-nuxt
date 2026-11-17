@@ -12,7 +12,4 @@ enum Mode: string
 
     /** Every page built in advance: `generate`. */
     case Ssg = 'ssg';
-
-    /** Every page rendered on request by the Nitro server: `build`. */
-    case Ssr = 'ssr';
 }

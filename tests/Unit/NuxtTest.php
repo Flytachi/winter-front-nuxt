@@ -133,51 +133,18 @@ final class NuxtTest extends TestCase
         self::assertSame($this->project . '/not/there/.output/public', $site->root);
     }
 
-    public function test_ssr_serves_the_public_output_and_runs_its_server(): void
-    {
-        $nuxt = Nuxt::ssr('frontend');
-        $site = $nuxt->site();
-
-        self::assertSame($this->project . '/frontend/.output/public', $site->root);
-        self::assertNull($site->shell, 'its pages are rendered, there is no shell');
-        self::assertSame($this->project . '/frontend/.output/nitro.json', $site->marker(), 'built: written on every build');
-        self::assertSame('/_nuxt', $site->assets);
-
-        $program = $nuxt->program(false);
-        self::assertNotNull($program);
-        self::assertSame(['node', 'frontend/.output/server/index.mjs'], $program->command);
-        self::assertTrue($program->server, 'Nitro has routes of its own: every method');
-        self::assertInstanceOf(NuxtOutput::class, $program->output);
-    }
-
-    public function test_spa_and_ssg_have_no_program_in_production(): void
-    {
-        self::assertNull(Nuxt::spa('frontend')->program(false));
-        self::assertNull(Nuxt::ssg('frontend')->program(false));
-    }
-
-    public function test_dev_runs_the_runner_for_every_mode(): void
+    public function test_dev_runs_the_runner_in_either_mode(): void
     {
         touch($this->project . '/frontend/pnpm-lock.yaml');
-        foreach (['spa' => false, 'ssg' => false, 'ssr' => true] as $mode => $server) {
-            $program = Nuxt::$mode('frontend')->program(true);
+        foreach (['spa', 'ssg'] as $mode) {
+            $program = Nuxt::$mode('frontend')->devServer();
 
-            self::assertNotNull($program, $mode);
             self::assertSame(PHP_BINARY, $program->command[0]);
             self::assertSame(realpath(dirname(__DIR__, 2) . '/bin/nuxt-dev'), realpath($program->command[1]));
             self::assertSame(['frontend', 'pnpm'], array_slice($program->command, 2), $mode);
-            self::assertSame($server, $program->server, $mode);
+            self::assertInstanceOf(NuxtOutput::class, $program->output);
             self::assertSame(180, $program->startTimeout, 'a first start installs');
         }
-    }
-
-    public function test_the_ssr_image_carries_node(): void
-    {
-        $image = Nuxt::ssr('frontend')->image();
-
-        self::assertSame(['nodejs'], $image->packages);
-        self::assertSame(['npm'], $image->devPackages);
-        self::assertSame(self::DEV_RUN, $image->devRun);
     }
 
     public function test_spa_image_carries_node_only_in_dev(): void
@@ -189,12 +156,4 @@ final class NuxtTest extends TestCase
         self::assertSame(self::DEV_RUN, $image->devRun, 'corepack, and a home for its cache and the pnpm store');
     }
 
-    public function test_ssr_builds_with_build_into_output(): void
-    {
-        touch($this->project . '/frontend/pnpm-lock.yaml');
-        $build = Nuxt::ssr('frontend')->build();
-
-        self::assertSame('.output', $build->output, 'the server and the public files');
-        self::assertSame('pnpm run build', $build->build);
-    }
 }

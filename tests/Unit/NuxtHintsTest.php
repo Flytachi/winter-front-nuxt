@@ -215,48 +215,4 @@ final class NuxtHintsTest extends TestCase
 
         self::assertSame([], Nuxt::spa('frontend')->hints(true), 'nuxt dev builds nothing ahead');
     }
-
-    public function test_ssr_without_winter_backend(): void
-    {
-        $this->built();
-        $this->config('  nitro: { compressPublicAssets: true },');
-
-        self::assertSame(
-            ['nothing in frontend/ uses WINTER_BACKEND — during SSR useFetch(\'/api/…\') stays in Nitro; '
-                . 'add server/routes/api/[...].ts: export default defineEventHandler('
-                . '(event) => proxyRequest(event, process.env.WINTER_BACKEND + event.path))'],
-            Nuxt::ssr('frontend')->hints(false),
-        );
-        mkdir($this->front . '/server/routes/api', 0777, true);
-        file_put_contents(
-            $this->front . '/server/routes/api/[...].ts',
-            'export default defineEventHandler((event) => proxyRequest(event, process.env.WINTER_BACKEND + event.path))',
-        );
-        self::assertSame([], Nuxt::ssr('frontend')->hints(false), 'the server route that hands /api on');
-    }
-
-    public function test_ssr_with_ssr_false(): void
-    {
-        $this->built();
-        $this->config("  ssr: false,\n  routeRules: { '/api/**': { proxy: process.env.WINTER_BACKEND + '/api/**' } },");
-
-        self::assertSame(
-            ['nuxt.config.ts has ssr: false — the pages are empty shells; use Nuxt::spa(), or drop it'],
-            Nuxt::ssr('frontend')->hints(false),
-        );
-    }
-
-    public function test_ssr_not_built(): void
-    {
-        $this->config("  routeRules: { '/api/**': { proxy: process.env.WINTER_BACKEND } },");
-
-        self::assertSame(['not built yet: run "pnpm run build" in frontend/'], Nuxt::ssr('frontend')->hints(false));
-        self::assertSame([], Nuxt::ssr('frontend')->hints(true));
-    }
-
-    private function built(): void
-    {
-        mkdir($this->front . '/.output/server', 0777, true);
-        touch($this->front . '/.output/server/index.mjs');
-    }
 }
