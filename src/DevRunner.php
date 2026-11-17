@@ -33,7 +33,7 @@ final class DevRunner
             return self::say('usage: nuxt-dev <folder> <pnpm|npm|yarn|bun>, run in the project root', 2);
         }
         if (self::onPath('node') === null) {
-            return self::say(is_file('/.dockerenv')
+            return self::say(self::inContainer()
                 ? 'Node is not in the image: rebuild with DEV=true docker compose up --build'
                 : 'Node is not installed: https://nodejs.org', 1);
         }
@@ -68,10 +68,11 @@ final class DevRunner
             return 0;
         }
         $command = $manager->install($directory, image: false);
-        if ($manager === PackageManager::Pnpm) {
-            // pnpm keeps its store on the project's filesystem — at the top of it when the
-            // home is elsewhere, a container's bind mount: among the project's sources. In
-            // node_modules instead, the volume it is installed into.
+        if ($manager === PackageManager::Pnpm && self::inContainer()) {
+            // In a container pnpm keeps its store at the top of the bind mount — among the
+            // project's sources, its home being elsewhere: in node_modules instead, the volume
+            // it is installed into. Not on the host: there it has a store of its own, and
+            // refuses to change it for an existing install.
             $command .= ' --store-dir ' . escapeshellarg("{$directory}/node_modules/.pnpm-store");
         }
         $why = match (true) {
@@ -90,6 +91,12 @@ final class DevRunner
         }
         @file_put_contents($stamp, $wanted . "\n");
         return 0;
+    }
+
+    /** Whether it runs in a container: Docker's mark, or Podman's. */
+    private static function inContainer(): bool
+    {
+        return is_file('/.dockerenv') || is_file('/run/.containerenv');
     }
 
     private static function isEmpty(string $folder): bool

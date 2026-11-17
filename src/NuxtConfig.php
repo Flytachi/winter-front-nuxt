@@ -118,7 +118,6 @@ final readonly class NuxtConfig
         return $n - 1;
     }
 
-    /** Where the config's object opens: `defineNuxtConfig({`, else `export default {`. */
     private static function rootObject(string $text): ?int
     {
         foreach (['/defineNuxtConfig\s*\(\s*\{/', '/export\s+default\s*\{/'] as $pattern) {

@@ -157,8 +157,15 @@ final readonly class Nuxt implements Frontend
         bool $critical,
         bool $overlap,
     ): self {
-        $folder = rtrim($folder, '/');
-        if (preg_match(self::FOLDER, $folder) !== 1 || in_array('..', explode('/', $folder), true)) {
+        // `./frontend` is `frontend`; `.` itself is not a folder of the project: the image
+        // empties a frontend's folder before its build is copied in.
+        $folder = (string) preg_replace('#^(\./)+#', '', rtrim($folder, '/'));
+        $segments = explode('/', $folder);
+        if (
+            preg_match(self::FOLDER, $folder) !== 1
+            || in_array('..', $segments, true)
+            || in_array('.', $segments, true)
+        ) {
             throw new \InvalidArgumentException("folder is relative to the project root, \"{$folder}\" given.");
         }
         if ($name === null) {

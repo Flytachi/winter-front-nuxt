@@ -4,7 +4,7 @@ All notable changes to this package are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the package adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.0] — unreleased
+## [1.0.0] — 2026-11-17
 
 ### Added
 
@@ -12,7 +12,7 @@ All notable changes to this package are documented here. The format follows
   the application's own HTTP server after its routes:
   - `Nuxt::spa()` — a single-page app (`ssr: false`): `generate` → `.output/public`, its
     `200.html` for every route of the app;
-  - `Nuxt::ssg()` — a pre-rendered site: a page of its own or 404;
+  - `Nuxt::ssg()` — a pre-rendered site: a page of its own, or its `404.html` with 404;
   - where it answers: `path:`, a port of its own with `routes:` and `exclusive:`; `name:`,
     `critical:`, `overlap:`; `/_nuxt` cached for good.
 - `PackageManager` — pnpm, npm, yarn or bun, told by the lock file (several: the one
@@ -32,3 +32,7 @@ All notable changes to this package are documented here. The format follows
 - `NuxtOutput` — the lines of `nuxt dev` and Nitro in the application's log: colours left
   out, errors and warnings at their level, stack frames joined to their line.
 - The image: Node, npm and corepack only in a development build (`DEV=true`).
+- The folder is a folder of the project: `./frontend` is `frontend`; `.` (the project
+  itself), `..` and a `.` segment are refused — the image empties a frontend's folder.
+- pnpm's store goes to `node_modules` only in a container (`--store-dir`); on the host
+  pnpm keeps its own.

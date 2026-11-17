@@ -100,15 +100,13 @@ final class DevRunnerTest extends TestCase
         self::assertStringContainsString('no node_modules yet: pnpm install --frozen-lockfile', $run['out']);
     }
 
-    public function test_pnpms_store_is_kept_in_node_modules(): void
+    public function test_on_the_host_pnpm_keeps_its_own_store(): void
     {
+        // A store of its own in node_modules only in a container (its home is elsewhere):
+        // on the host, pnpm refuses to change the store of an existing install without a TTY.
         $run = $this->start();
 
-        self::assertStringEndsWith(
-            ' --store-dir ' . realpath($this->project . '/frontend') . '/node_modules/.pnpm-store',
-            $run['calls'][0] ?? '',
-            'in the node_modules volume, never beside the project\'s sources',
-        );
+        self::assertStringNotContainsString('--store-dir', $run['calls'][0] ?? '', $run['out']);
     }
 
     public function test_it_installs_nothing_the_second_time(): void

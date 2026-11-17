@@ -83,7 +83,7 @@ final class NuxtTest extends TestCase
 
     public function test_a_folder_outside_the_project_is_refused(): void
     {
-        foreach (['../front', '/srv/front', 'a/../../b', '', 'Admin UI'] as $folder) {
+        foreach (['../front', '/srv/front', 'a/../../b', '', 'Admin UI', '.', './', 'web/.', 'web/./admin'] as $folder) {
             try {
                 Nuxt::spa($folder);
                 self::fail("accepted: {$folder}");
@@ -156,4 +156,9 @@ final class NuxtTest extends TestCase
         self::assertSame(self::DEV_RUN, $image->devRun, 'corepack, and a home for its cache and the pnpm store');
     }
 
+    public function test_a_leading_dot_slash_is_the_same_folder(): void
+    {
+        self::assertSame('frontend', Nuxt::spa('./frontend')->folder);
+        self::assertSame('frontend', Nuxt::spa('./frontend')->site()->name);
+    }
 }

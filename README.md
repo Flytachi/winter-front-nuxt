@@ -80,7 +80,7 @@ A Node stage of its own builds it; the image gets `.output/public` only.
 | | Factory | `nuxt.config.ts` | Unknown page |
 | --- | --- | --- | --- |
 | Single-page app | `Nuxt::spa()` | `ssr: false` | the app's `200.html` — the browser routes |
-| Pre-rendered site | `Nuxt::ssg()` | no `ssr` key; `prerender` | 404 |
+| Pre-rendered site | `Nuxt::ssg()` | no `ssr` key; `prerender` | its own `404.html`, with 404 |
 
 ```ts
 // Nuxt::ssg() — every page built in advance (SEO), the links followed from /
@@ -111,7 +111,7 @@ again — no loop. A `$fetch` of your own from Node code does not carry it.
 
 Before it starts, the dependencies are installed when the lock file changed since the last
 install here (`pnpm-lock.yaml changed since the last install: pnpm install …`) — and not
-otherwise. pnpm keeps its store in `node_modules`.
+otherwise. In a container pnpm keeps its store in `node_modules`, the volume it installs into.
 
 In Docker the image needs Node, and `node_modules` a volume of its own — the host's are
 built for the host:
